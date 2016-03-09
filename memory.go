@@ -95,9 +95,7 @@ func (c *Memory) gc() {
 		}
 	}
 
-	time.AfterFunc(time.Duration(c.interval)*time.Second, func() {
-		c.gc()
-	})
+	time.AfterFunc(time.Duration(c.interval)*time.Second, func() { c.gc() })
 }
 
 func init() {
