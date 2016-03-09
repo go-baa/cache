@@ -51,4 +51,4 @@ import(
 )
 ```
 
-memory adapter has build in, do not need import.
+adapter ``memory`` has build in, do not need import.
