@@ -95,7 +95,7 @@ set the memory cache memory limit, default is 128m
 app.SetDI("cache", cache.New(cache.Options{
     Name:     "cache",
     Adapter:  "memory",
-    Config:   map[string]string{
+    Config:   map[string]interface{}{
         "bytesLimit": int64(128 * 1024 * 1024), // 128m
     },
     Interval: 60,
