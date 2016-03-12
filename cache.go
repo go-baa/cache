@@ -2,7 +2,10 @@
 package cache
 
 import (
+	"bytes"
+	"encoding/gob"
 	"fmt"
+	"time"
 )
 
 // Cacher a cache management for baa
@@ -19,6 +22,13 @@ type Cacher interface {
 	Flush() error
 	// Start new a cacher and start service
 	Start(Options) error
+}
+
+// Item cache storage item
+type Item struct {
+	Val     interface{}
+	Created int64
+	TTL     int64
 }
 
 // Options cache options
@@ -65,4 +75,27 @@ func Register(name string, adapter Cacher) {
 		panic(fmt.Errorf("cache.Register: cannot register adapter '%s' twice", name))
 	}
 	adapters[name] = adapter
+}
+
+// Expired check item has expired
+func (t *Item) Expired() bool {
+	return t.TTL > 0 && (time.Now().Unix()-t.Created) >= t.TTL
+}
+
+// EncodeGob encode item use gob for storage
+func EncodeGob(item *Item) ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	err := gob.NewEncoder(buf).Encode(item)
+	return buf.Bytes(), err
+}
+
+// DecodeGob decode item use gob for storage
+func DecodeGob(data []byte, out *Item) error {
+	buf := bytes.NewBuffer(data)
+	return gob.NewDecoder(buf).Decode(&out)
+}
+
+func init() {
+	gob.Register(time.Time{})
+	gob.Register(&Item{})
 }

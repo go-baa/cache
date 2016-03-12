@@ -1,101 +1,152 @@
 package cache
 
 import (
+	"strconv"
 	"sync"
 	"time"
+
+	"github.com/go-baa/cache/lru"
+)
+
+const (
+	// MemoryLimit default memory size limit
+	// 128  1 << 7
+	// 1024 1 << 10
+	// 128M 1 << 27
+	MemoryLimit int64 = 1 << 27
 )
 
 // Memory implement a memory cache adapter for cacher
 type Memory struct {
-	Name     string
-	store    map[string]*item
-	lock     sync.RWMutex
-	interval int64
-}
-
-type item struct {
-	v       interface{}
-	created int64
-	ttl     int64
-}
-
-// Expired check item has expired
-func (t *item) Expired() bool {
-	return t.ttl > 0 && (time.Now().Unix()-t.created) >= t.ttl
+	Name       string
+	bytes      int64
+	bytesLimit int64
+	mu         sync.RWMutex
+	store      *lru.Cache
 }
 
 // Exist check key is exist
 func (c *Memory) Exist(key string) bool {
-	_, ok := c.store[key]
-	if ok {
-		return !c.store[key].Expired()
+	item := c.get(key)
+	if item != nil {
+		return true
 	}
 	return false
 }
 
 // Get returns value for given key
 func (c *Memory) Get(key string) interface{} {
-	if c.Exist(key) {
-		return c.store[key].v
+	item := c.get(key)
+	if item != nil {
+		return item.Val
 	}
 	return nil
 }
 
+func (c *Memory) get(key string) *Item {
+	v, ok := c.store.Get(key)
+	if !ok {
+		return nil
+	}
+	item := new(Item)
+	err := DecodeGob(v.([]byte), item)
+	if err != nil {
+		return nil
+	}
+	if item.Expired() {
+		c.Delete(key)
+		return nil
+	}
+	return item
+}
+
 // Set set value for given key
 func (c *Memory) Set(key string, v interface{}, ttl int64) error {
-	c.store[key] = &item{
-		v:       v,
-		created: time.Now().Unix(),
-		ttl:     ttl,
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	item := &Item{
+		Val:     v,
+		Created: time.Now().Unix(),
+		TTL:     ttl,
 	}
+	b, err := EncodeGob(item)
+	if err != nil {
+		return err
+	}
+	l := int64(len(b))
+	c.gc(l)
+	c.store.Add(key, b)
+	c.bytes += l
 	return nil
 }
 
 // Delete delete the key
 func (c *Memory) Delete(key string) error {
-	delete(c.store, key)
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	c.store.Remove(key)
 	return nil
 }
 
 // Flush flush cacher
 func (c *Memory) Flush() error {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	for key := range c.store {
-		delete(c.store, key)
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	var l int
+	for {
+		l = c.store.Len()
+		if l > 0 {
+			c.store.RemoveOldest()
+		} else {
+			break
+		}
 	}
+	c.bytes = 0
+
 	return nil
 }
 
 // Start new a cacher and start service
 func (c *Memory) Start(o Options) error {
-	if c.store == nil {
-		c.store = make(map[string]*item)
-	}
-	c.interval = o.Interval
-
-	go c.gc()
-
-	return nil
-}
-
-func (c *Memory) gc() {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-
-	if c.interval < 1 {
-		return
-	}
-
-	if c.store != nil {
-		for key := range c.store {
-			if c.store[key].Expired() {
-				delete(c.store, key)
+	c.Name = o.Name
+	c.bytesLimit = MemoryLimit
+	if o.Config != nil {
+		if v, ok := o.Config["bytesLimit"]; ok {
+			b, _ := strconv.ParseInt(v, 10, 64)
+			if b > 0 {
+				c.bytesLimit = b
 			}
 		}
 	}
 
-	time.AfterFunc(time.Duration(c.interval)*time.Second, func() { c.gc() })
+	if c.store == nil {
+		c.store = lru.New(0)
+		c.store.OnEvicted = func(key lru.Key, value interface{}) {
+			c.bytes -= int64(len(value.([]byte)))
+		}
+	}
+
+	return nil
+}
+
+// gc release memory for storage new item
+// if free bytes can store item returns
+// remove items until bytes less than bytesLimit - len(item) * 100
+func (c *Memory) gc(size int64) {
+	if c.bytes+size < c.bytesLimit {
+		return
+	}
+
+	var l int
+	for c.bytes > c.bytesLimit-size*100 {
+		l = c.store.Len()
+		if l > 0 {
+			c.store.RemoveOldest()
+		} else {
+			break
+		}
+	}
+	c.bytes = 0
 }
 
 func init() {
