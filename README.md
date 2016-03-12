@@ -1,4 +1,5 @@
-# cache
+# cache [![GoDoc](http://img.shields.io/badge/go-documentation-blue.svg?style=flat-square)](http://godoc.org/github.com/go-baa/cache) [![License](http://img.shields.io/badge/license-mit-blue.svg?style=flat-square)](https://raw.githubusercontent.com/go-baa/cache/master/LICENSE) [![Build Status](http://img.shields.io/travis/go-baa/cache.svg?style=flat-square)](https://travis-ci.org/go-baa/cache) [![Coverage Status](http://img.shields.io/coveralls/go-baa/cache.svg?style=flat-square)](https://coveralls.io/r/go-baa/cache)
+
 baa module providers a cache management.
 
 ## Features
