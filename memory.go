@@ -131,14 +131,14 @@ func (c *Memory) Start(o Options) error {
 
 // gc release memory for storage new item
 // if free bytes can store item returns
-// remove items until bytes less than bytesLimit - len(item) * 100
+// remove items until bytes less than bytesLimit - len(item) * 64
 func (c *Memory) gc(size int64) {
 	if c.bytes+size < c.bytesLimit {
 		return
 	}
 
 	var l int
-	for c.bytes > c.bytesLimit-size*100 {
+	for c.bytes > c.bytesLimit-size*64 {
 		l = c.store.Len()
 		if l > 0 {
 			c.store.RemoveOldest()
