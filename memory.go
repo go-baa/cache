@@ -1,7 +1,6 @@
 package cache
 
 import (
-	"strconv"
 	"sync"
 	"time"
 
@@ -111,11 +110,8 @@ func (c *Memory) Start(o Options) error {
 	c.Name = o.Name
 	c.bytesLimit = MemoryLimit
 	if o.Config != nil {
-		if v, ok := o.Config["bytesLimit"]; ok {
-			b, _ := strconv.ParseInt(v, 10, 64)
-			if b > 0 {
-				c.bytesLimit = b
-			}
+		if v, ok := o.Config["bytesLimit"].(int64); ok {
+			c.bytesLimit = v
 		}
 	}
 

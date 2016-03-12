@@ -12,8 +12,8 @@ func TestCacheMemory1(t *testing.T) {
 		c := New(Options{
 			Name:    "test",
 			Adapter: "memory",
-			Config: map[string]string{
-				"bytesLimit": "1024", // 1KB
+			Config: map[string]interface{}{
+				"bytesLimit": int64(1024), // 1KB
 			},
 			Interval: 60,
 		})

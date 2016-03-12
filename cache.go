@@ -33,10 +33,10 @@ type Item struct {
 
 // Options cache options
 type Options struct {
-	Name     string            // cache name
-	Adapter  string            // adapter
-	Config   map[string]string // config for adapter
-	Interval int64             // gc interval second
+	Name     string                 // cache name
+	Adapter  string                 // adapter
+	Config   map[string]interface{} // config for adapter
+	Interval int64                  // gc interval second
 }
 
 var adapters = make(map[string]Cacher)
