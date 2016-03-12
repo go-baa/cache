@@ -8,10 +8,9 @@ import (
 )
 
 const (
-	// MemoryLimit default memory size limit
+	// MemoryLimit default memory size limit, 128mb
 	// 128  1 << 7
 	// 1024 1 << 10
-	// 128M 1 << 27
 	MemoryLimit int64 = 1 << 27
 )
 
