@@ -15,7 +15,6 @@ func TestCacheMemory1(t *testing.T) {
 			Config: map[string]interface{}{
 				"bytesLimit": int64(1024), // 1KB
 			},
-			Interval: 60,
 		})
 
 		Convey("set", func() {

@@ -26,17 +26,18 @@ type Cacher interface {
 
 // Item cache storage item
 type Item struct {
-	Val     interface{}
-	Created int64
-	TTL     int64
+	Val        interface{} // real object value
+	Expiration int64       // expired time
 }
+
+// ItemBinary cache item encoded data
+type ItemBinary []byte
 
 // Options cache options
 type Options struct {
-	Name     string                 // cache name
-	Adapter  string                 // adapter
-	Config   map[string]interface{} // config for adapter
-	Interval int64                  // gc interval second
+	Name    string                 // cache name
+	Adapter string                 // adapter
+	Config  map[string]interface{} // config for adapter
 }
 
 var adapters = make(map[string]Cacher)
@@ -77,22 +78,32 @@ func Register(name string, adapter Cacher) {
 	adapters[name] = adapter
 }
 
-// Expired check item has expired
-func (t *Item) Expired() bool {
-	return t.TTL > 0 && (time.Now().Unix()-t.Created) >= t.TTL
+// NewItem create a cache item
+func NewItem(val interface{}, ttl int64) *Item {
+	return &Item{
+		Val:        val,
+		Expiration: time.Now().Add(time.Duration(ttl) * time.Second).UnixNano(),
+	}
 }
 
-// EncodeGob encode item use gob for storage
-func EncodeGob(item *Item) ([]byte, error) {
+// Expired check item has expired
+func (t *Item) Expired() bool {
+	return t.Expiration > 0 && time.Now().UnixNano() >= t.Expiration
+}
+
+// Bytes encode item use gob for storage
+func (t *Item) Bytes() (ItemBinary, error) {
 	buf := bytes.NewBuffer(nil)
-	err := gob.NewEncoder(buf).Encode(item)
+	err := gob.NewEncoder(buf).Encode(t)
 	return buf.Bytes(), err
 }
 
-// DecodeGob decode item use gob for storage
-func DecodeGob(data []byte, out *Item) error {
-	buf := bytes.NewBuffer(data)
-	return gob.NewDecoder(buf).Decode(&out)
+// Item decode bytes data to cache item use gob
+func (t ItemBinary) Item() (*Item, error) {
+	buf := bytes.NewBuffer(t)
+	item := new(Item)
+	err := gob.NewDecoder(buf).Decode(&item)
+	return item, err
 }
 
 func init() {

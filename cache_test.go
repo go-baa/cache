@@ -2,21 +2,15 @@ package cache
 
 import (
 	"testing"
-	"time"
 
 	. "github.com/smartystreets/goconvey/convey"
 )
 
 func TestCacheGob1(t *testing.T) {
 	Convey("cache Gob", t, func() {
-		item := &Item{
-			Val:     "1",
-			Created: time.Now().Unix(),
-			TTL:     6,
-		}
-		item2 := new(Item)
-		b, err := EncodeGob(item)
-		err2 := DecodeGob(b, item2)
+		item := NewItem("1", 6)
+		b, err := item.Bytes()
+		item2, err2 := b.Item()
 
 		Convey("encode", func() {
 			So(err, ShouldBeNil)
@@ -32,9 +26,8 @@ func TestCacheGob1(t *testing.T) {
 func TestCache1(t *testing.T) {
 	Convey("cache", t, func() {
 		c := New(Options{
-			Name:     "test",
-			Adapter:  "memory",
-			Interval: 60,
+			Name:    "test",
+			Adapter: "memory",
 		})
 
 		Convey("set", func() {

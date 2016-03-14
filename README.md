@@ -26,7 +26,6 @@ func main() {
 		Name:     "cache",
 		Adapter:  "memory",
 		Config:   map[string]string{},
-		Interval: 60,
 	}))
 
 	// router
@@ -76,12 +75,6 @@ the cache adapter name, choose support adapter: memory, file, memcache, redis.
 
 the cache adapter config, use a dict, values was diffrent with adapter.
 
-**Interval**
-
-``int64``
-
-the cache gc interval time, second.
-
 ### Adapter Memory
 
 **bytesLimit**
@@ -99,7 +92,6 @@ app.SetDI("cache", cache.New(cache.Options{
     Config:   map[string]interface{}{
         "bytesLimit": int64(128 * 1024 * 1024), // 128m
     },
-    Interval: 60,
 }))
 ```
 

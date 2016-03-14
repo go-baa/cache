@@ -2,7 +2,6 @@ package cache
 
 import (
 	"sync"
-	"time"
 
 	"github.com/go-baa/cache/lru"
 )
@@ -34,6 +33,8 @@ func (c *Memory) Exist(key string) bool {
 
 // Get returns value for given key
 func (c *Memory) Get(key string) interface{} {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	item := c.get(key)
 	if item != nil {
 		return item.Val
@@ -46,8 +47,7 @@ func (c *Memory) get(key string) *Item {
 	if !ok {
 		return nil
 	}
-	item := new(Item)
-	err := DecodeGob(v.([]byte), item)
+	item, err := v.(ItemBinary).Item()
 	if err != nil {
 		return nil
 	}
@@ -60,14 +60,10 @@ func (c *Memory) get(key string) *Item {
 
 // Set set value for given key
 func (c *Memory) Set(key string, v interface{}, ttl int64) error {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	item := &Item{
-		Val:     v,
-		Created: time.Now().Unix(),
-		TTL:     ttl,
-	}
-	b, err := EncodeGob(item)
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	item := NewItem(v, ttl)
+	b, err := item.Bytes()
 	if err != nil {
 		return err
 	}
@@ -80,8 +76,8 @@ func (c *Memory) Set(key string, v interface{}, ttl int64) error {
 
 // Delete delete the key
 func (c *Memory) Delete(key string) error {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.store.Remove(key)
 	return nil
 }
@@ -117,7 +113,7 @@ func (c *Memory) Start(o Options) error {
 	if c.store == nil {
 		c.store = lru.New(0)
 		c.store.OnEvicted = func(key lru.Key, value interface{}) {
-			c.bytes -= int64(len(value.([]byte)))
+			c.bytes -= int64(len(value.(ItemBinary)))
 		}
 	}
 
