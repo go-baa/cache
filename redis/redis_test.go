@@ -4,6 +4,7 @@ import (
 	"encoding/gob"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/go-baa/cache"
 	. "github.com/smartystreets/goconvey/convey"
@@ -15,13 +16,19 @@ var c cache.Cacher
 func TestCacheMemory1(t *testing.T) {
 	Convey("cache redis", t, func() {
 		Convey("set", func() {
-			err := c.Set("test", "1", 6)
+			err := c.Set("test", "1", 2)
 			So(err, ShouldBeNil)
 		})
 
 		Convey("get", func() {
 			v := c.Get("test")
 			So(v, ShouldEqual, "1")
+		})
+
+		Convey("get gc", func() {
+			time.Sleep(time.Second * 3)
+			v := c.Get("test")
+			So(v, ShouldBeNil)
 		})
 
 		Convey("set struct", func() {
