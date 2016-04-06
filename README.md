@@ -13,8 +13,8 @@ baa module providers a cache management.
 package main
 
 import (
-	"github.com/go-baa/baa"
 	"github.com/go-baa/cache"
+	"gopkg.in/baa.v1"
 )
 
 func main() {
