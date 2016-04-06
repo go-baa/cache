@@ -95,6 +95,7 @@ set the memory cache memory limit, default is 128m
 ```
 app.SetDI("cache", cache.New(cache.Options{
     Name:     "cache",
+    Prefix:   "MyApp",
     Adapter:  "memory",
     Config:   map[string]interface{}{
         "bytesLimit": int64(128 * 1024 * 1024), // 128m
@@ -102,4 +103,72 @@ app.SetDI("cache", cache.New(cache.Options{
 }))
 ```
 
+### Adapter Memcache
 
+**host**
+
+``string``
+
+memcached server host.
+
+**port**
+
+``string``
+
+memcached server port.
+
+**Usage**
+
+```
+app.SetDI("cache", cache.New(cache.Options{
+    Name:     "cache",
+    Prefix:   "MyApp",
+    Adapter:  "memcache",
+    Config:   map[string]interface{}{
+        "host": "127.0.0.1",
+        "port": "11211",
+    },
+}))
+```
+
+### Adapter Redis
+
+**host**
+
+``string``
+
+redis server host.
+
+**port**
+
+``string``
+
+redis server port.
+
+**password**
+
+``string``
+
+redis server auth, default none.
+
+**poolsize**
+
+``int``
+
+connection pool size, default 10.
+
+**Usage**
+
+```
+app.SetDI("cache", cache.New(cache.Options{
+    Name:     "cache",
+    Prefix:   "MyApp",
+    Adapter:  "redis",
+    Config:   map[string]interface{}{
+        "host":     "127.0.0.1",
+        "port":     "11211",
+        "password": "",
+        "poolsize": 10,
+    },
+}))
+```

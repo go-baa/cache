@@ -122,6 +122,7 @@ func (c *Redis) Start(o cache.Options) error {
 	c.Name = o.Name
 	c.Prefix = o.Prefix
 	var host, port, pass string
+	var poolSzie int
 	if val, ok := o.Config["host"]; ok {
 		host = val.(string)
 	} else {
@@ -135,10 +136,16 @@ func (c *Redis) Start(o cache.Options) error {
 	if val, ok := o.Config["password"]; ok {
 		pass = val.(string)
 	}
+	if val, ok := o.Config["poolsize"]; ok {
+		poolSzie = val.(int)
+	} else {
+		poolSzie = 10
+	}
 	c.handle = redis.NewClient(&redis.Options{
 		Addr:     host + ":" + port,
 		Password: pass,
 		DB:       0,
+		PoolSize: poolSzie,
 	})
 	pong, err := c.handle.Ping().Result()
 	if err != nil || pong != "PONG" {
