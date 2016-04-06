@@ -11,21 +11,22 @@ import (
 // Redis implement a redis cache adapter for cacher
 type Redis struct {
 	Name   string
+	Prefix string
 	handle *redis.Client
 }
 
-// Exist check key is exist
+// Exist return true if value cached by given key
 func (c *Redis) Exist(key string) bool {
-	ok, err := c.handle.Exists(key).Result()
+	ok, err := c.handle.Exists(c.Prefix + key).Result()
 	if err == nil && ok {
 		return true
 	}
 	return false
 }
 
-// Get returns value for given key
+// Get returns value by given key
 func (c *Redis) Get(key string) interface{} {
-	v, err := c.handle.Get(key).Bytes()
+	v, err := c.handle.Get(c.Prefix + key).Bytes()
 	if err != nil {
 		return nil
 	}
@@ -36,20 +37,79 @@ func (c *Redis) Get(key string) interface{} {
 	return item.Val
 }
 
-// Set set value for given key
+// Set cache value by given key
 func (c *Redis) Set(key string, v interface{}, ttl int64) error {
 	item := cache.NewItem(v, ttl)
 	b, err := item.Bytes()
 	if err != nil {
 		return err
 	}
-	_, err = c.handle.Set(key, []byte(b), time.Second*time.Duration(ttl)).Result()
-	return err
+	return c.handle.Set(c.Prefix+key, []byte(b), time.Second*time.Duration(ttl)).Err()
 }
 
-// Delete delete the key
+// Incr increases cached int-type value by given key as a counter
+// if key not exist, before increase set value with zero
+func (c *Redis) Incr(key string) (interface{}, error) {
+	v, err := c.handle.Get(c.Prefix + key).Bytes()
+	if err != nil {
+		var v interface{}
+		v = 1
+		err = c.Set(key, v, 0)
+		if err != nil {
+			return nil, err
+		}
+		return v, nil
+	}
+	item, err := cache.ItemBinary(v).Item()
+	if err != nil || item == nil {
+		return nil, err
+	}
+	err = item.Incr()
+	if err != nil {
+		return nil, err
+	}
+	b, err := item.Bytes()
+	if err != nil {
+		return nil, err
+	}
+	ttl := int64((item.Expiration - time.Now().UnixNano()) / 1e9)
+	if ttl < 0 {
+		return nil, fmt.Errorf("cache expired")
+	}
+	err = c.handle.Set(c.Prefix+key, []byte(b), time.Second*time.Duration(ttl)).Err()
+	return item.Val, err
+}
+
+// Decr decreases cached int-type value by given key as a counter
+// if key not exist, return errors
+func (c *Redis) Decr(key string) (interface{}, error) {
+	v, err := c.handle.Get(c.Prefix + key).Bytes()
+	if err != nil {
+		return nil, err
+	}
+	item, err := cache.ItemBinary(v).Item()
+	if err != nil || item == nil {
+		return nil, err
+	}
+	err = item.Decr()
+	if err != nil {
+		return nil, err
+	}
+	b, err := item.Bytes()
+	if err != nil {
+		return nil, err
+	}
+	ttl := int64((item.Expiration - time.Now().UnixNano()) / 1e9)
+	if ttl < 0 {
+		return nil, fmt.Errorf("cache expired")
+	}
+	err = c.handle.Set(c.Prefix+key, []byte(b), time.Second*time.Duration(ttl)).Err()
+	return item.Val, err
+}
+
+// Delete delete cached data by given key
 func (c *Redis) Delete(key string) error {
-	return c.handle.Del(key).Err()
+	return c.handle.Del(c.Prefix + key).Err()
 }
 
 // Flush flush cacher
@@ -60,6 +120,7 @@ func (c *Redis) Flush() error {
 // Start new a cacher and start service
 func (c *Redis) Start(o cache.Options) error {
 	c.Name = o.Name
+	c.Prefix = o.Prefix
 	var host, port, pass string
 	if val, ok := o.Config["host"]; ok {
 		host = val.(string)

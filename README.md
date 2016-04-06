@@ -4,8 +4,8 @@ baa module providers a cache management.
 
 ## Features
 
-- multi storage support: memory, file, memcache, redis, couchbase
-- Get/Set/Delete/Exist/Flush/Start
+- multi storage support: memory, file, memcache, redis
+- Get/Set/Incr/Decr/Delete/Exist/Flush/Start
 
 ## Getting Started
 
@@ -24,6 +24,7 @@ func main() {
 	// register cache
 	app.SetDI("cache", cache.New(cache.Options{
 		Name:     "cache",
+        Prefix:   "MyApp",
 		Adapter:  "memory",
 		Config:   map[string]string{},
 	}))
@@ -62,6 +63,12 @@ adapter ``memory`` has build in, do not need import.
 ``string``
 
 the cache name
+
+**Prefix**
+
+``string``
+
+the cache key prefix, used for isolate different cache instance/app.
 
 **Adapter**
 

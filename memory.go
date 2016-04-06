@@ -1,7 +1,9 @@
 package cache
 
 import (
+	"fmt"
 	"sync"
+	"time"
 
 	"github.com/go-baa/cache/lru"
 )
@@ -16,26 +18,27 @@ const (
 // Memory implement a memory cache adapter for cacher
 type Memory struct {
 	Name       string
+	Prefix     string
 	bytes      int64
 	bytesLimit int64
 	mu         sync.RWMutex
 	store      *lru.Cache
 }
 
-// Exist check key is exist
+// Exist return true if value cached by given key
 func (c *Memory) Exist(key string) bool {
-	item := c.get(key)
+	item := c.get(c.Prefix + key)
 	if item != nil {
 		return true
 	}
 	return false
 }
 
-// Get returns value for given key
+// Get returns value by given key
 func (c *Memory) Get(key string) interface{} {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	item := c.get(key)
+	item := c.get(c.Prefix + key)
 	if item != nil {
 		return item.Val
 	}
@@ -43,7 +46,7 @@ func (c *Memory) Get(key string) interface{} {
 }
 
 func (c *Memory) get(key string) *Item {
-	v, ok := c.store.Get(key)
+	v, ok := c.store.Get(c.Prefix + key)
 	if !ok {
 		return nil
 	}
@@ -52,13 +55,13 @@ func (c *Memory) get(key string) *Item {
 		return nil
 	}
 	if item.Expired() {
-		c.Delete(key)
+		c.Delete(c.Prefix + key)
 		return nil
 	}
 	return item
 }
 
-// Set set value for given key
+// Set cache value by given key
 func (c *Memory) Set(key string, v interface{}, ttl int64) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -67,18 +70,67 @@ func (c *Memory) Set(key string, v interface{}, ttl int64) error {
 	if err != nil {
 		return err
 	}
+	// if overwrite bytes count will error
+	// so, delete first if exist
+	if c.Exist(key) {
+		c.store.Remove(c.Prefix + key)
+	}
 	l := int64(len(b))
 	c.gc(l)
-	c.store.Add(key, b)
+	c.store.Add(c.Prefix+key, b)
 	c.bytes += l
 	return nil
 }
 
-// Delete delete the key
+// Incr increases cached int-type value by given key as a counter
+// if key not exist, before increase set value with zero
+func (c *Memory) Incr(key string) (interface{}, error) {
+	item := c.get(key)
+	if item == nil {
+		item = NewItem(0, 0)
+	}
+	err := item.Incr()
+	if err != nil {
+		return nil, err
+	}
+	ttl := int64((item.Expiration - time.Now().UnixNano()) / 1e9)
+	if ttl < 0 {
+		return nil, fmt.Errorf("cache expired")
+	}
+	err = c.Set(key, item.Val, ttl)
+	if err != nil {
+		return nil, err
+	}
+	return item.Val, nil
+}
+
+// Decr decreases cached int-type value by given key as a counter
+// if key not exist, return errors
+func (c *Memory) Decr(key string) (interface{}, error) {
+	item := c.get(key)
+	if item == nil {
+		return nil, fmt.Errorf("cache key not exists")
+	}
+	err := item.Decr()
+	if err != nil {
+		return nil, err
+	}
+	ttl := int64((item.Expiration - time.Now().UnixNano()) / 1e9)
+	if ttl < 0 {
+		return nil, fmt.Errorf("cache expired")
+	}
+	err = c.Set(key, item.Val, ttl)
+	if err != nil {
+		return nil, err
+	}
+	return item.Val, nil
+}
+
+// Delete delete cached data by given key
 func (c *Memory) Delete(key string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.store.Remove(key)
+	c.store.Remove(c.Prefix + key)
 	return nil
 }
 
@@ -103,6 +155,7 @@ func (c *Memory) Flush() error {
 // Start new a cacher and start service
 func (c *Memory) Start(o Options) error {
 	c.Name = o.Name
+	c.Prefix = o.Prefix
 	c.bytesLimit = MemoryLimit
 	if o.Config != nil {
 		if v, ok := o.Config["bytesLimit"].(int64); ok {

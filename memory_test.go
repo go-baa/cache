@@ -44,6 +44,17 @@ func TestCacheMemory1(t *testing.T) {
 			So(v2.(b).Name, ShouldEqual, v1.Name)
 		})
 
+		Convey("incr/decr", func() {
+			c.Set("test", 1, 10)
+			v, err := c.Incr("test")
+			v, err = c.Incr("test")
+			So(err, ShouldBeNil)
+			So(v.(int), ShouldEqual, 3)
+			v, err = c.Decr("test")
+			So(err, ShouldBeNil)
+			So(v.(int), ShouldEqual, 2)
+		})
+
 		Convey("gc", func() {
 			for i := 0; i <= 100; i++ {
 				key := "test" + strconv.Itoa(i)
