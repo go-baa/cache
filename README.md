@@ -166,7 +166,7 @@ app.SetDI("cache", cache.New(cache.Options{
     Adapter:  "redis",
     Config:   map[string]interface{}{
         "host":     "127.0.0.1",
-        "port":     "11211",
+        "port":     "6379",
         "password": "",
         "poolsize": 10,
     },
