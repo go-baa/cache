@@ -13,6 +13,8 @@ const (
 	// 128  1 << 7
 	// 1024 1 << 10
 	MemoryLimit int64 = 1 << 27
+	// MemoryMin minimum value for memory limit, 1mb
+	MemoryMin int64 = 1 << 20
 )
 
 // Memory implement a memory cache adapter for cacher
@@ -76,9 +78,13 @@ func (c *Memory) Set(key string, v interface{}, ttl int64) error {
 		c.store.Remove(c.Prefix + key)
 	}
 	l := int64(len(b))
-	c.gc(l)
+	err = c.gc(l)
+	if err != nil {
+		return nil
+	}
 	c.store.Add(c.Prefix+key, b)
 	c.bytes += l
+
 	return nil
 }
 
@@ -162,6 +168,9 @@ func (c *Memory) Start(o Options) error {
 			c.bytesLimit = v
 		}
 	}
+	if c.bytesLimit < MemoryMin {
+		c.bytesLimit = MemoryMin
+	}
 
 	if c.store == nil {
 		c.store = lru.New(0)
@@ -176,13 +185,21 @@ func (c *Memory) Start(o Options) error {
 // gc release memory for storage new item
 // if free bytes can store item returns
 // remove items until bytes less than bytesLimit - len(item) * 64
-func (c *Memory) gc(size int64) {
+func (c *Memory) gc(size int64) error {
 	if c.bytes+size < c.bytesLimit {
-		return
+		return nil
+	}
+
+	if size > MemoryMin {
+		return fmt.Errorf("object size limit %d bytes", MemoryMin)
 	}
 
 	var l int
-	for c.bytes > c.bytesLimit-size*64 {
+	releaseSize := c.bytesLimit - size*64
+	if releaseSize <= 0 {
+		releaseSize = size
+	}
+	for c.bytes > releaseSize {
 		l = c.store.Len()
 		if l > 0 {
 			c.store.RemoveOldest()
@@ -190,7 +207,7 @@ func (c *Memory) gc(size int64) {
 			break
 		}
 	}
-	c.bytes = 0
+	return nil
 }
 
 func init() {

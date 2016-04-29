@@ -11,6 +11,7 @@ import (
 
 // init a global cacher
 var testCache Cacher
+var err error
 
 func TestCacheMemory1(t *testing.T) {
 	Convey("cache memory", t, func() {
@@ -18,7 +19,7 @@ func TestCacheMemory1(t *testing.T) {
 			Name:    "test2",
 			Adapter: "memory",
 			Config: map[string]interface{}{
-				"bytesLimit": int64(1024), // 1KB
+				"bytesLimit": int64(1024 * 1024), // 1MB
 			},
 		})
 
@@ -29,6 +30,21 @@ func TestCacheMemory1(t *testing.T) {
 
 		Convey("get", func() {
 			v := c.Get("test")
+			So(v, ShouldEqual, "1")
+		})
+
+		Convey("set 10000", func() {
+			for i := 0; i < 10000; i++ {
+				err = c.Set("test", "1", 10)
+			}
+			So(err, ShouldBeNil)
+		})
+
+		Convey("get 10000", func() {
+			var v interface{}
+			for i := 0; i < 10000; i++ {
+				v = c.Get("test")
+			}
 			So(v, ShouldEqual, "1")
 		})
 
@@ -56,14 +72,14 @@ func TestCacheMemory1(t *testing.T) {
 		})
 
 		Convey("gc", func() {
-			for i := 0; i <= 100; i++ {
+			for i := 0; i <= 200000; i++ {
 				key := "test" + strconv.Itoa(i)
-				err := c.Set(key, i, 6)
-				So(err, ShouldBeNil)
+				err = c.Set(key, "01234567890123456789", 6)
 			}
-			v := c.Get("test100")
-			So(v, ShouldEqual, 100)
-			v = c.Get("test1")
+			So(err, ShouldBeNil)
+			v := c.Get("test200000")
+			So(v, ShouldEqual, "01234567890123456789")
+			v = c.Get("test100")
 			So(v, ShouldBeNil)
 		})
 	})
