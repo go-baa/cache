@@ -82,6 +82,15 @@ func (c *Cache) Get(key Key) (value interface{}, ok bool) {
 	return
 }
 
+// GetOldest returns the oldest item from the cache.
+func (c *Cache) GetOldest() (value interface{}) {
+	if c.cache == nil {
+		return
+	}
+	ele := c.ll.Back()
+	return ele.Value.(*entry).value
+}
+
 // Remove removes the provided key from the cache.
 func (c *Cache) Remove(key Key) {
 	if c.cache == nil {

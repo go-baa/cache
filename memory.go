@@ -194,14 +194,12 @@ func (c *Memory) gc(size int64) error {
 		return fmt.Errorf("object size limit %d bytes", MemoryMin)
 	}
 
-	var l int
 	releaseSize := c.bytesLimit - size*64
 	if releaseSize <= 0 {
 		releaseSize = size
 	}
 	for c.bytes > releaseSize {
-		l = c.store.Len()
-		if l > 0 {
+		if c.store.Len() > 0 {
 			c.store.RemoveOldest()
 		} else {
 			break
