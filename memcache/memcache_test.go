@@ -21,14 +21,16 @@ func TestCacheMemory1(t *testing.T) {
 		})
 
 		Convey("get", func() {
-			v := c.Get("test")
+			var v string
+			c.Get("test", &v)
 			So(v, ShouldEqual, "1")
 		})
 
 		Convey("get gc", func() {
+			var v string
 			time.Sleep(time.Second * 3)
-			v := c.Get("test")
-			So(v, ShouldBeNil)
+			c.Get("test", &v)
+			So(v, ShouldBeEmpty)
 		})
 
 		Convey("set struct", func() {
@@ -39,8 +41,9 @@ func TestCacheMemory1(t *testing.T) {
 			v1 := b{"test"}
 			err := c.Set("test", v1, 6)
 			So(err, ShouldBeNil)
-			v2 := c.Get("test")
-			So(v2.(b).Name, ShouldEqual, v1.Name)
+			var v2 b
+			c.Get("test", &v2)
+			So(v2.Name, ShouldEqual, v1.Name)
 		})
 
 		Convey("incr/decr", func() {
@@ -48,10 +51,10 @@ func TestCacheMemory1(t *testing.T) {
 			v, err := c.Incr("test")
 			v, err = c.Incr("test")
 			So(err, ShouldBeNil)
-			So(v.(int), ShouldEqual, 3)
+			So(v, ShouldEqual, 3)
 			v, err = c.Decr("test")
 			So(err, ShouldBeNil)
-			So(v.(int), ShouldEqual, 2)
+			So(v, ShouldEqual, 2)
 		})
 	})
 }
@@ -63,8 +66,9 @@ func BenchmarkCacheMemorySet(b *testing.B) {
 }
 
 func BenchmarkCacheMemoryGet(b *testing.B) {
+	var v string
 	for i := 0; i < b.N; i++ {
-		c.Get(fmt.Sprintf("test%d", i))
+		c.Get(fmt.Sprintf("test%d", i), v)
 	}
 }
 

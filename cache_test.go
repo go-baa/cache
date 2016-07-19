@@ -36,7 +36,8 @@ func TestCache1(t *testing.T) {
 		})
 
 		Convey("get", func() {
-			v := c.Get("test")
+			var v string
+			c.Get("test", &v)
 			So(v, ShouldEqual, "1")
 		})
 	})

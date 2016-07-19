@@ -29,7 +29,8 @@ func TestCacheMemory1(t *testing.T) {
 		})
 
 		Convey("get", func() {
-			v := c.Get("test")
+			var v string
+			c.Get("test", &v)
 			So(v, ShouldEqual, "1")
 		})
 
@@ -41,9 +42,10 @@ func TestCacheMemory1(t *testing.T) {
 		})
 
 		Convey("get 10000", func() {
-			var v interface{}
+			var v string
 			for i := 0; i < 10000; i++ {
-				v = c.Get("test")
+				v = ""
+				c.Get("test", &v)
 			}
 			So(v, ShouldEqual, "1")
 		})
@@ -56,8 +58,9 @@ func TestCacheMemory1(t *testing.T) {
 			v1 := b{"test"}
 			err := c.Set("test", v1, 6)
 			So(err, ShouldBeNil)
-			v2 := c.Get("test")
-			So(v2.(b).Name, ShouldEqual, v1.Name)
+			var v2 b
+			c.Get("test", &v2)
+			So(v2.Name, ShouldEqual, v1.Name)
 		})
 
 		Convey("incr/decr", func() {
@@ -65,22 +68,24 @@ func TestCacheMemory1(t *testing.T) {
 			v, err := c.Incr("test")
 			v, err = c.Incr("test")
 			So(err, ShouldBeNil)
-			So(v.(int), ShouldEqual, 3)
+			So(v, ShouldEqual, 3)
 			v, err = c.Decr("test")
 			So(err, ShouldBeNil)
-			So(v.(int), ShouldEqual, 2)
+			So(v, ShouldEqual, 2)
 		})
 
 		Convey("gc", func() {
-			for i := 0; i <= 200000; i++ {
+			var v string
+			for i := 0; i <= 10700; i++ {
 				key := "test" + strconv.Itoa(i)
-				err = c.Set(key, "01234567890123456789", 6)
+				err = c.Set(key, "01234567890123456789", 10)
 			}
 			So(err, ShouldBeNil)
-			v := c.Get("test200000")
+			c.Get("test10000", &v)
 			So(v, ShouldEqual, "01234567890123456789")
-			v = c.Get("test100")
-			So(v, ShouldBeNil)
+			v = ""
+			c.Get("test60", &v)
+			So(v, ShouldBeEmpty)
 		})
 	})
 }
@@ -92,8 +97,9 @@ func BenchmarkCacheMemorySet(b *testing.B) {
 }
 
 func BenchmarkCacheMemoryGet(b *testing.B) {
+	var v string
 	for i := 0; i < b.N; i++ {
-		testCache.Get(fmt.Sprintf("test%d", i))
+		testCache.Get(fmt.Sprintf("test%d", i), &v)
 	}
 }
 

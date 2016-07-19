@@ -2,6 +2,7 @@ package cache
 
 import (
 	"fmt"
+	"reflect"
 	"sync"
 	"time"
 
@@ -37,14 +38,17 @@ func (c *Memory) Exist(key string) bool {
 }
 
 // Get returns value by given key
-func (c *Memory) Get(key string) interface{} {
+func (c *Memory) Get(key string, o interface{}) {
 	c.mu.RLock()
-	defer c.mu.RUnlock()
+	c.mu.RUnlock()
 	item := c.get(c.Prefix + key)
 	if item != nil {
-		return item.Val
+		rv := reflect.ValueOf(o).Elem()
+		iv := reflect.ValueOf(item.Val)
+		if rv.CanSet() && rv.Type() == iv.Type() {
+			reflect.ValueOf(o).Elem().Set(reflect.ValueOf(item.Val))
+		}
 	}
-	return nil
 }
 
 func (c *Memory) get(key string) *Item {
@@ -90,46 +94,46 @@ func (c *Memory) Set(key string, v interface{}, ttl int64) error {
 
 // Incr increases cached int-type value by given key as a counter
 // if key not exist, before increase set value with zero
-func (c *Memory) Incr(key string) (interface{}, error) {
+func (c *Memory) Incr(key string) (int64, error) {
 	item := c.get(key)
 	if item == nil {
 		item = NewItem(0, 0)
 	}
 	err := item.Incr()
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
 	ttl := int64((item.Expiration - time.Now().UnixNano()) / 1e9)
 	if ttl < 0 {
-		return nil, fmt.Errorf("cache expired")
+		return 0, fmt.Errorf("cache expired")
 	}
 	err = c.Set(key, item.Val, ttl)
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
-	return item.Val, nil
+	return item.Val.(int64), nil
 }
 
 // Decr decreases cached int-type value by given key as a counter
 // if key not exist, return errors
-func (c *Memory) Decr(key string) (interface{}, error) {
+func (c *Memory) Decr(key string) (int64, error) {
 	item := c.get(key)
 	if item == nil {
-		return nil, fmt.Errorf("cache key not exists")
+		return 0, fmt.Errorf("cache key not exists")
 	}
 	err := item.Decr()
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
 	ttl := int64((item.Expiration - time.Now().UnixNano()) / 1e9)
 	if ttl < 0 {
-		return nil, fmt.Errorf("cache expired")
+		return 0, fmt.Errorf("cache expired")
 	}
 	err = c.Set(key, item.Val, ttl)
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
-	return item.Val, nil
+	return item.Val.(int64), nil
 }
 
 // Delete delete cached data by given key

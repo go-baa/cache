@@ -2,6 +2,7 @@ package redis
 
 import (
 	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/go-baa/cache"
@@ -25,86 +26,50 @@ func (c *Redis) Exist(key string) bool {
 }
 
 // Get returns value by given key
-func (c *Redis) Get(key string) interface{} {
+func (c *Redis) Get(key string, o interface{}) {
 	v, err := c.handle.Get(c.Prefix + key).Bytes()
-	if err != nil {
-		return nil
+	if err != nil || len(v) == 0 {
+		return
 	}
+
+	if cache.SimpleValue(v, o) {
+		return
+	}
+
 	item, err := cache.ItemBinary(v).Item()
 	if err != nil || item == nil {
-		return nil
+		return
 	}
-	return item.Val
+	rv := reflect.ValueOf(o).Elem()
+	iv := reflect.ValueOf(item.Val)
+	if rv.CanSet() && rv.Type() == iv.Type() {
+		reflect.ValueOf(o).Elem().Set(reflect.ValueOf(item.Val))
+	}
 }
 
 // Set cache value by given key
 func (c *Redis) Set(key string, v interface{}, ttl int64) error {
-	item := cache.NewItem(v, ttl)
-	b, err := item.Bytes()
-	if err != nil {
-		return err
+	if !cache.SimpleType(v) {
+		item := cache.NewItem(v, ttl)
+		b, err := item.Bytes()
+		if err != nil {
+			return err
+		}
+		v = []byte(b)
 	}
-	return c.handle.Set(c.Prefix+key, []byte(b), time.Second*time.Duration(ttl)).Err()
+	return c.handle.Set(c.Prefix+key, v, time.Second*time.Duration(ttl)).Err()
 }
 
 // Incr increases cached int-type value by given key as a counter
 // if key not exist, before increase set value with zero
-func (c *Redis) Incr(key string) (interface{}, error) {
-	v, err := c.handle.Get(c.Prefix + key).Bytes()
-	if err != nil {
-		var v interface{}
-		v = 1
-		err = c.Set(key, v, 0)
-		if err != nil {
-			return nil, err
-		}
-		return v, nil
-	}
-	item, err := cache.ItemBinary(v).Item()
-	if err != nil || item == nil {
-		return nil, err
-	}
-	err = item.Incr()
-	if err != nil {
-		return nil, err
-	}
-	b, err := item.Bytes()
-	if err != nil {
-		return nil, err
-	}
-	ttl := int64((item.Expiration - time.Now().UnixNano()) / 1e9)
-	if ttl < 0 {
-		return nil, fmt.Errorf("cache expired")
-	}
-	err = c.handle.Set(c.Prefix+key, []byte(b), time.Second*time.Duration(ttl)).Err()
-	return item.Val, err
+func (c *Redis) Incr(key string) (int64, error) {
+	return c.handle.Incr(c.Prefix + key).Val(), nil
 }
 
 // Decr decreases cached int-type value by given key as a counter
 // if key not exist, return errors
-func (c *Redis) Decr(key string) (interface{}, error) {
-	v, err := c.handle.Get(c.Prefix + key).Bytes()
-	if err != nil {
-		return nil, err
-	}
-	item, err := cache.ItemBinary(v).Item()
-	if err != nil || item == nil {
-		return nil, err
-	}
-	err = item.Decr()
-	if err != nil {
-		return nil, err
-	}
-	b, err := item.Bytes()
-	if err != nil {
-		return nil, err
-	}
-	ttl := int64((item.Expiration - time.Now().UnixNano()) / 1e9)
-	if ttl < 0 {
-		return nil, fmt.Errorf("cache expired")
-	}
-	err = c.handle.Set(c.Prefix+key, []byte(b), time.Second*time.Duration(ttl)).Err()
-	return item.Val, err
+func (c *Redis) Decr(key string) (int64, error) {
+	return c.handle.Decr(c.Prefix + key).Val(), nil
 }
 
 // Delete delete cached data by given key

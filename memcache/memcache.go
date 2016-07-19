@@ -2,7 +2,7 @@ package memcache
 
 import (
 	"fmt"
-	"time"
+	"reflect"
 
 	"github.com/bradfitz/gomemcache/memcache"
 	"github.com/go-baa/cache"
@@ -17,97 +17,63 @@ type Memcache struct {
 
 // Exist return true if value cached by given key
 func (c *Memcache) Exist(key string) bool {
-	val := c.Get(c.Prefix + key)
-	if val != nil {
+	_, err := c.handle.Get(c.Prefix + key)
+	if err != nil {
 		return true
 	}
 	return false
 }
 
 // Get returns value by given key
-func (c *Memcache) Get(key string) interface{} {
+func (c *Memcache) Get(key string, o interface{}) {
 	v, err := c.handle.Get(c.Prefix + key)
 	if err != nil {
-		return nil
+		return
 	}
+
+	if cache.SimpleValue(v.Value, o) {
+		return
+	}
+
 	item, err := cache.ItemBinary(v.Value).Item()
 	if err != nil || item == nil {
-		return nil
+		return
 	}
-	return item.Val
+	rv := reflect.ValueOf(o).Elem()
+	iv := reflect.ValueOf(item.Val)
+	if rv.CanSet() && rv.Type() == iv.Type() {
+		reflect.ValueOf(o).Elem().Set(reflect.ValueOf(item.Val))
+	}
 }
 
 // Set cache value by given key
 func (c *Memcache) Set(key string, v interface{}, ttl int64) error {
-	item := cache.NewItem(v, ttl)
-	b, err := item.Bytes()
-	if err != nil {
-		return err
+	var t []byte
+	if !cache.SimpleType(v) {
+		item := cache.NewItem(v, ttl)
+		b, err := item.Bytes()
+		if err != nil {
+			return err
+		}
+		t = []byte(b)
+	} else {
+		t = []byte(fmt.Sprintf("%v", v))
 	}
-	return c.handle.Set(&memcache.Item{Key: c.Prefix + key, Value: []byte(b), Expiration: int32(ttl)})
+	return c.handle.Set(&memcache.Item{Key: c.Prefix + key, Value: t, Expiration: int32(ttl)})
 }
 
 // Incr increases cached int-type value by given key as a counter
 // if key not exist, before increase set value with zero
-func (c *Memcache) Incr(key string) (interface{}, error) {
-	v, err := c.handle.Get(c.Prefix + key)
-	if err != nil {
-		if err.Error() == memcache.ErrCacheMiss.Error() {
-			var v interface{}
-			v = 1
-			err = c.Set(key, v, 0)
-			if err != nil {
-				return nil, err
-			}
-			return v, nil
-		}
-		return nil, err
-	}
-	item, err := cache.ItemBinary(v.Value).Item()
-	if err != nil || item == nil {
-		return nil, err
-	}
-	err = item.Incr()
-	if err != nil {
-		return nil, err
-	}
-	b, err := item.Bytes()
-	if err != nil {
-		return nil, err
-	}
-	ttl := int64((item.Expiration - time.Now().UnixNano()) / 1e9)
-	if ttl < 0 {
-		return nil, fmt.Errorf("cache expired")
-	}
-	err = c.handle.Set(&memcache.Item{Key: c.Prefix + key, Value: []byte(b), Expiration: int32(ttl)})
-	return item.Val, nil
+func (c *Memcache) Incr(key string) (int64, error) {
+	v, err := c.handle.Increment(c.Prefix+key, 1)
+	return int64(v), err
 }
 
 // Decr decreases cached int-type value by given key as a counter
 // if key not exist, return errors
-func (c *Memcache) Decr(key string) (interface{}, error) {
-	v, err := c.handle.Get(c.Prefix + key)
-	if err != nil {
-		return nil, err
-	}
-	item, err := cache.ItemBinary(v.Value).Item()
-	if err != nil || item == nil {
-		return nil, err
-	}
-	err = item.Decr()
-	if err != nil {
-		return nil, err
-	}
-	b, err := item.Bytes()
-	if err != nil {
-		return nil, err
-	}
-	ttl := int64((item.Expiration - time.Now().UnixNano()) / 1e9)
-	if ttl < 0 {
-		return nil, fmt.Errorf("cache expired")
-	}
-	err = c.handle.Set(&memcache.Item{Key: c.Prefix + key, Value: []byte(b), Expiration: int32(ttl)})
-	return item.Val, nil
+func (c *Memcache) Decr(key string) (int64, error) {
+	v, err := c.handle.Decrement(c.Prefix+key, 1)
+	return int64(v), err
 }
 
 // Delete delete cached data by given key
