@@ -33,7 +33,8 @@ func main() {
 	app.Get("/", func(c *baa.Context) {
 		ca := c.DI("cache").(cache.Cacher)
 		ca.Set("test", "baa", 10)
-		v := ca.Get("test").(string)
+        var v string
+		ca.Get("test", v)
 		c.String(200, v)
 	})
 
