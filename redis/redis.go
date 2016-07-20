@@ -1,6 +1,7 @@
 package redis
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"time"
@@ -26,29 +27,32 @@ func (c *Redis) Exist(key string) bool {
 }
 
 // Get returns value by given key
-func (c *Redis) Get(key string, o interface{}) {
+func (c *Redis) Get(key string, o interface{}) error {
 	v, err := c.handle.Get(c.Prefix + key).Bytes()
-	if err != nil || len(v) == 0 {
-		return
+	if err != nil {
+		return err
 	}
 
 	if cache.SimpleValue(v, o) {
-		return
+		return nil
 	}
 
 	item, err := cache.ItemBinary(v).Item()
-	if err != nil || item == nil {
-		return
+	if err != nil {
+		return err
 	}
 	rv := reflect.ValueOf(o)
 	if rv.Type().Kind() == reflect.Ptr {
 		rv = rv.Elem()
 	}
-	if rv.CanSet() {
-		if rv.Type() == reflect.ValueOf(item.Val).Type() {
-			reflect.ValueOf(o).Elem().Set(reflect.ValueOf(item.Val))
-		}
+	if !rv.CanSet() {
+		return errors.New("given variable cannot set value")
 	}
+	if rv.Type() != reflect.ValueOf(item.Val).Type() {
+		return errors.New("given variable is different type with stored value")
+	}
+	reflect.ValueOf(o).Elem().Set(reflect.ValueOf(item.Val))
+	return nil
 }
 
 // Set cache value by given key

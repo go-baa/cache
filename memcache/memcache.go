@@ -1,6 +1,7 @@
 package memcache
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 
@@ -25,29 +26,32 @@ func (c *Memcache) Exist(key string) bool {
 }
 
 // Get returns value by given key
-func (c *Memcache) Get(key string, o interface{}) {
+func (c *Memcache) Get(key string, o interface{}) error {
 	v, err := c.handle.Get(c.Prefix + key)
 	if err != nil {
-		return
+		return err
 	}
 
 	if cache.SimpleValue(v.Value, o) {
-		return
+		return nil
 	}
 
 	item, err := cache.ItemBinary(v.Value).Item()
-	if err != nil || item == nil {
-		return
+	if err != nil {
+		return err
 	}
 	rv := reflect.ValueOf(o)
 	if rv.Type().Kind() == reflect.Ptr {
 		rv = rv.Elem()
 	}
-	if rv.CanSet() {
-		if rv.Type() == reflect.ValueOf(item.Val).Type() {
-			reflect.ValueOf(o).Elem().Set(reflect.ValueOf(item.Val))
-		}
+	if !rv.CanSet() {
+		return errors.New("given variable cannot set value")
 	}
+	if rv.Type() != reflect.ValueOf(item.Val).Type() {
+		return errors.New("given variable is different type with stored value")
+	}
+	reflect.ValueOf(o).Elem().Set(reflect.ValueOf(item.Val))
+	return nil
 }
 
 // Set cache value by given key

@@ -14,7 +14,7 @@ type Cacher interface {
 	// Exist return true if value cached by given key
 	Exist(key string) bool
 	// Get returns value to o by given key
-	Get(key string, o interface{})
+	Get(key string, o interface{}) error
 	// Set cache value by given key
 	Set(key string, v interface{}, ttl int64) error
 	// Incr increases cached int-type value by given key as a counter

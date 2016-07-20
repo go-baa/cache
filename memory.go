@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"sync"
@@ -40,22 +41,25 @@ func (c *Memory) Exist(key string) bool {
 }
 
 // Get returns value by given key
-func (c *Memory) Get(key string, o interface{}) {
+func (c *Memory) Get(key string, o interface{}) error {
 	c.mu.RLock()
 	c.mu.RUnlock()
 	item := c.get(c.Prefix + key)
 	if item == nil {
-		return
+		return errors.New("cache miss")
 	}
 	rv := reflect.ValueOf(o)
 	if rv.Type().Kind() == reflect.Ptr {
 		rv = rv.Elem()
 	}
-	if rv.CanSet() {
-		if rv.Type() == reflect.ValueOf(item.Val).Type() {
-			reflect.ValueOf(o).Elem().Set(reflect.ValueOf(item.Val))
-		}
+	if !rv.CanSet() {
+		return errors.New("given variable cannot set value")
 	}
+	if rv.Type() != reflect.ValueOf(item.Val).Type() {
+		return errors.New("given variable is different type with stored value")
+	}
+	reflect.ValueOf(o).Elem().Set(reflect.ValueOf(item.Val))
+	return nil
 }
 
 func (c *Memory) get(key string) *Item {
