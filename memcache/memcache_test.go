@@ -3,6 +3,7 @@ package memcache
 import (
 	"encoding/gob"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -55,6 +56,32 @@ func TestCacheMemory1(t *testing.T) {
 			v, err = c.Decr("test")
 			So(err, ShouldBeNil)
 			So(v, ShouldEqual, 2)
+		})
+
+		Convey("flush", func() {
+			err := c.Flush()
+			So(err, ShouldBeNil)
+		})
+
+		Convey("exists", func() {
+			c.Set("test1", 1, 10)
+			c.Incr("test1")
+			ok := c.Exist("test1")
+			So(ok, ShouldBeTrue)
+			ok = c.Exist("testNotExist2")
+			So(ok, ShouldBeFalse)
+		})
+
+		Convey("large item", func() {
+			v := strings.Repeat("A", 1024*1025)
+			err := c.Set("test", v, 30)
+			So(err, ShouldNotBeNil)
+			v = strings.Repeat("A", 1024*513)
+			err = c.Set("test2", v, 30)
+			err = c.Set("test3", v, 30)
+			So(err, ShouldBeNil)
+			err = c.Delete("test3")
+			So(err, ShouldBeNil)
 		})
 	})
 }

@@ -40,10 +40,14 @@ func (c *Redis) Get(key string, o interface{}) {
 	if err != nil || item == nil {
 		return
 	}
-	rv := reflect.ValueOf(o).Elem()
-	iv := reflect.ValueOf(item.Val)
-	if rv.CanSet() && rv.Type() == iv.Type() {
-		reflect.ValueOf(o).Elem().Set(reflect.ValueOf(item.Val))
+	rv := reflect.ValueOf(o)
+	if rv.Type().Kind() == reflect.Ptr {
+		rv = rv.Elem()
+	}
+	if rv.CanSet() {
+		if rv.Type() == reflect.ValueOf(item.Val).Type() {
+			reflect.ValueOf(o).Elem().Set(reflect.ValueOf(item.Val))
+		}
 	}
 }
 

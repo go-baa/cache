@@ -18,7 +18,7 @@ type Memcache struct {
 // Exist return true if value cached by given key
 func (c *Memcache) Exist(key string) bool {
 	_, err := c.handle.Get(c.Prefix + key)
-	if err != nil {
+	if err == nil {
 		return true
 	}
 	return false
@@ -39,10 +39,14 @@ func (c *Memcache) Get(key string, o interface{}) {
 	if err != nil || item == nil {
 		return
 	}
-	rv := reflect.ValueOf(o).Elem()
-	iv := reflect.ValueOf(item.Val)
-	if rv.CanSet() && rv.Type() == iv.Type() {
-		reflect.ValueOf(o).Elem().Set(reflect.ValueOf(item.Val))
+	rv := reflect.ValueOf(o)
+	if rv.Type().Kind() == reflect.Ptr {
+		rv = rv.Elem()
+	}
+	if rv.CanSet() {
+		if rv.Type() == reflect.ValueOf(item.Val).Type() {
+			reflect.ValueOf(o).Elem().Set(reflect.ValueOf(item.Val))
+		}
 	}
 }
 

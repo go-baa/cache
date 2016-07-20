@@ -14,8 +14,10 @@ const (
 	// 128  1 << 7
 	// 1024 1 << 10
 	MemoryLimit int64 = 1 << 27
-	// MemoryMin minimum value for memory limit, 1mb
-	MemoryMin int64 = 1 << 20
+	// MemoryLimitMin minimum value for memory limit, 1mb
+	MemoryLimitMin int64 = 1 << 20
+	// MenoryObjectMaxSize maximum bytes for object, 1mb
+	MenoryObjectMaxSize int64 = 1 << 20
 )
 
 // Memory implement a memory cache adapter for cacher
@@ -42,10 +44,15 @@ func (c *Memory) Get(key string, o interface{}) {
 	c.mu.RLock()
 	c.mu.RUnlock()
 	item := c.get(c.Prefix + key)
-	if item != nil {
-		rv := reflect.ValueOf(o).Elem()
-		iv := reflect.ValueOf(item.Val)
-		if rv.CanSet() && rv.Type() == iv.Type() {
+	if item == nil {
+		return
+	}
+	rv := reflect.ValueOf(o)
+	if rv.Type().Kind() == reflect.Ptr {
+		rv = rv.Elem()
+	}
+	if rv.CanSet() {
+		if rv.Type() == reflect.ValueOf(item.Val).Type() {
 			reflect.ValueOf(o).Elem().Set(reflect.ValueOf(item.Val))
 		}
 	}
@@ -84,7 +91,7 @@ func (c *Memory) Set(key string, v interface{}, ttl int64) error {
 	l := int64(len(b))
 	err = c.gc(l)
 	if err != nil {
-		return nil
+		return err
 	}
 	c.store.Add(c.Prefix+key, b)
 	c.bytes += l
@@ -103,7 +110,10 @@ func (c *Memory) Incr(key string) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	ttl := int64((item.Expiration - time.Now().UnixNano()) / 1e9)
+	ttl := item.TTL
+	if ttl > 0 {
+		ttl = int64((item.Expiration - time.Now().UnixNano()) / 1e9)
+	}
 	if ttl < 0 {
 		return 0, fmt.Errorf("cache expired")
 	}
@@ -125,7 +135,10 @@ func (c *Memory) Decr(key string) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	ttl := int64((item.Expiration - time.Now().UnixNano()) / 1e9)
+	ttl := item.TTL
+	if ttl > 0 {
+		ttl = int64((item.Expiration - time.Now().UnixNano()) / 1e9)
+	}
 	if ttl < 0 {
 		return 0, fmt.Errorf("cache expired")
 	}
@@ -172,8 +185,8 @@ func (c *Memory) Start(o Options) error {
 			c.bytesLimit = v
 		}
 	}
-	if c.bytesLimit < MemoryMin {
-		c.bytesLimit = MemoryMin
+	if c.bytesLimit < MemoryLimitMin {
+		c.bytesLimit = MemoryLimitMin
 	}
 
 	if c.store == nil {
@@ -188,19 +201,19 @@ func (c *Memory) Start(o Options) error {
 
 // gc release memory for storage new item
 // if free bytes can store item returns
-// remove items until bytes less than bytesLimit - len(item) * 64
+// remove items until bytes less than bytesLimit - size
 func (c *Memory) gc(size int64) error {
 	if c.bytes+size < c.bytesLimit {
 		return nil
 	}
 
-	if size > MemoryMin {
-		return fmt.Errorf("object size limit %d bytes", MemoryMin)
+	if size > MenoryObjectMaxSize {
+		return fmt.Errorf("object size limit %d bytes", MenoryObjectMaxSize)
 	}
 
-	releaseSize := c.bytesLimit - size*64
+	releaseSize := c.bytesLimit - size*2
 	if releaseSize <= 0 {
-		releaseSize = size
+		releaseSize = c.bytesLimit - size
 	}
 	for c.bytes > releaseSize {
 		if c.store.Len() > 0 {

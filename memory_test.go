@@ -4,7 +4,9 @@ import (
 	"encoding/gob"
 	"fmt"
 	"strconv"
+	"strings"
 	"testing"
+	"time"
 
 	. "github.com/smartystreets/goconvey/convey"
 )
@@ -24,7 +26,7 @@ func TestCacheMemory1(t *testing.T) {
 		})
 
 		Convey("set", func() {
-			err := c.Set("test", "1", 6)
+			err := c.Set("test", "1", 2)
 			So(err, ShouldBeNil)
 		})
 
@@ -32,6 +34,13 @@ func TestCacheMemory1(t *testing.T) {
 			var v string
 			c.Get("test", &v)
 			So(v, ShouldEqual, "1")
+		})
+
+		Convey("get expried", func() {
+			time.Sleep(time.Second * 2)
+			var v string
+			c.Get("test", &v)
+			So(v, ShouldBeEmpty)
 		})
 
 		Convey("set 10000", func() {
@@ -70,13 +79,18 @@ func TestCacheMemory1(t *testing.T) {
 			So(err, ShouldBeNil)
 			So(v, ShouldEqual, 3)
 			v, err = c.Decr("test")
-			So(err, ShouldBeNil)
 			So(v, ShouldEqual, 2)
+			v, err = c.Incr("test1")
+			So(v, ShouldEqual, 1)
+			v, err = c.Decr("test2")
+			So(err, ShouldNotBeNil)
+			err = c.Delete("test")
+			So(err, ShouldBeNil)
 		})
 
 		Convey("gc", func() {
 			var v string
-			for i := 0; i <= 10700; i++ {
+			for i := 0; i <= 11000; i++ {
 				key := "test" + strconv.Itoa(i)
 				err = c.Set(key, "01234567890123456789", 10)
 			}
@@ -84,8 +98,33 @@ func TestCacheMemory1(t *testing.T) {
 			c.Get("test10000", &v)
 			So(v, ShouldEqual, "01234567890123456789")
 			v = ""
-			c.Get("test60", &v)
+			c.Get("test6", &v)
 			So(v, ShouldBeEmpty)
+		})
+
+		Convey("flush", func() {
+			err := c.Flush()
+			So(err, ShouldBeNil)
+		})
+
+		Convey("exists", func() {
+			c.Incr("test1")
+			ok := c.Exist("test1")
+			So(ok, ShouldBeTrue)
+			ok = c.Exist("testNotExist")
+			So(ok, ShouldBeFalse)
+		})
+
+		Convey("large item", func() {
+			v := strings.Repeat("A", 1024*1025)
+			err := c.Set("test", v, 30)
+			So(err, ShouldNotBeNil)
+			v = strings.Repeat("A", 1024*513)
+			err = c.Set("test2", v, 30)
+			err = c.Set("test3", v, 30)
+			So(err, ShouldBeNil)
+			err = c.Delete("test3")
+			So(err, ShouldBeNil)
 		})
 	})
 }
