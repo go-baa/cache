@@ -1,9 +1,7 @@
 package memcache
 
 import (
-	"errors"
 	"fmt"
-	"reflect"
 
 	"github.com/bradfitz/gomemcache/memcache"
 	"github.com/go-baa/cache"
@@ -40,28 +38,7 @@ func (c *Memcache) Get(key string, out interface{}) error {
 	if err != nil {
 		return err
 	}
-	rv := reflect.ValueOf(out)
-	if rv.IsNil() {
-		return errors.New("cache: out is nil")
-	}
-	if rv.Kind() != reflect.Ptr {
-		return errors.New("cache: out must be a pointer")
-	}
-	for rv.Kind() == reflect.Ptr {
-		if !rv.Elem().IsValid() && rv.IsNil() {
-			rv.Set(reflect.New(rv.Type().Elem()))
-		}
-		rv = rv.Elem()
-	}
-
-	if !rv.CanSet() {
-		return errors.New("cache: out cannot set value")
-	}
-	if rv.Type() != reflect.TypeOf(item.Val) {
-		return fmt.Errorf("cache: out is different type with stored value %v, %v", rv.Type(), reflect.TypeOf(item.Val))
-	}
-	rv.Set(reflect.ValueOf(item.Val))
-	return nil
+	return item.Decode(out)
 }
 
 // Set cache value by given key
@@ -69,7 +46,7 @@ func (c *Memcache) Set(key string, v interface{}, ttl int64) error {
 	var t []byte
 	if !cache.SimpleType(v) {
 		item := cache.NewItem(v, ttl)
-		b, err := item.Bytes()
+		b, err := item.Encode()
 		if err != nil {
 			return err
 		}

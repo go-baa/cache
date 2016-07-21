@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
+	"reflect"
 	"strconv"
 	"time"
 )
@@ -104,26 +105,10 @@ func (t *Item) Expired() bool {
 // Incr increases given value
 func (t *Item) Incr() error {
 	switch t.Val.(type) {
-	case int:
-		t.Val = int64(t.Val.(int)) + 1
-	case int8:
-		t.Val = int64(t.Val.(int8)) + 1
-	case int16:
-		t.Val = int64(t.Val.(int16)) + 1
-	case int32:
-		t.Val = int64(t.Val.(int32)) + 1
-	case int64:
-		t.Val = int64(t.Val.(int64)) + 1
-	case uint:
-		t.Val = int64(t.Val.(uint)) + 1
-	case uint8:
-		t.Val = int64(t.Val.(uint8)) + 1
-	case uint16:
-		t.Val = int64(t.Val.(uint16)) + 1
-	case uint32:
-		t.Val = int64(t.Val.(uint32)) + 1
-	case uint64:
-		t.Val = int64(t.Val.(uint64)) + 1
+	case int, int8, int16, int32, int64:
+		t.Val = reflect.ValueOf(t.Val).Int() + 1
+	case uint, uint8, uint16, uint32, uint64:
+		t.Val = int64(reflect.ValueOf(t.Val).Uint()) + 1
 	default:
 		return fmt.Errorf("item value is not int-type")
 	}
@@ -133,57 +118,51 @@ func (t *Item) Incr() error {
 // Decr decreases given value
 func (t *Item) Decr() error {
 	switch t.Val.(type) {
-	case int:
-		t.Val = int64(t.Val.(int)) - 1
-	case int8:
-		t.Val = int64(t.Val.(int8)) - 1
-	case int16:
-		t.Val = int64(t.Val.(int16)) - 1
-	case int32:
-		t.Val = int64(t.Val.(int32)) - 1
-	case int64:
-		t.Val = int64(t.Val.(int64)) - 1
-	case uint:
-		if t.Val.(uint) > 0 {
-			t.Val = int64(t.Val.(uint)) - 1
-		} else {
-			return fmt.Errorf("item value is less than 0")
-		}
-	case uint8:
-		if t.Val.(uint8) > 0 {
-			t.Val = int64(t.Val.(uint8)) - 1
-		} else {
-			return fmt.Errorf("item value is less than 0")
-		}
-	case uint16:
-		if t.Val.(uint16) > 0 {
-			t.Val = int64(t.Val.(uint16)) - 1
-		} else {
-			return fmt.Errorf("item value is less than 0")
-		}
-	case uint32:
-		if t.Val.(uint32) > 0 {
-			t.Val = int64(t.Val.(uint32)) - 1
-		} else {
-			return fmt.Errorf("item value is less than 0")
-		}
-	case uint64:
-		if t.Val.(uint64) > 0 {
-			t.Val = int64(t.Val.(uint64)) - 1
-		} else {
-			return fmt.Errorf("item value is less than 0")
-		}
+	case int, int8, int16, int32, int64:
+		t.Val = reflect.ValueOf(t.Val).Int() - 1
+	case uint, uint8, uint16, uint32, uint64:
+		t.Val = int64(reflect.ValueOf(t.Val).Uint()) - 1
 	default:
 		return fmt.Errorf("item value is not int-type")
+	}
+	if t.Val.(int64) <= 0 {
+		return fmt.Errorf("item value is less than 0")
 	}
 	return nil
 }
 
-// Bytes encode item use gob for storage
-func (t *Item) Bytes() (ItemBinary, error) {
+// Encode encode item to bytes by gob
+func (t *Item) Encode() (ItemBinary, error) {
 	buf := bytes.NewBuffer(nil)
 	err := gob.NewEncoder(buf).Encode(t)
 	return buf.Bytes(), err
+}
+
+// Decode item value to out interface
+func (t *Item) Decode(out interface{}) error {
+	rv := reflect.ValueOf(out)
+	if rv.IsNil() {
+		return fmt.Errorf("cache: out is nil")
+	}
+	if rv.Kind() != reflect.Ptr {
+		return fmt.Errorf("cache: out must be a pointer")
+	}
+	for rv.Kind() == reflect.Ptr {
+		if !rv.Elem().IsValid() && rv.IsNil() {
+			rv.Set(reflect.New(rv.Type().Elem()))
+		}
+		rv = rv.Elem()
+	}
+
+	if !rv.CanSet() {
+		return fmt.Errorf("cache: out cannot set value")
+	}
+	rt := reflect.ValueOf(t.Val)
+	if rv.Type() != rt.Type() {
+		return fmt.Errorf("cache: out is different type with stored value %v, %v", rv.Type(), rt.Type())
+	}
+	rv.Set(rt)
+	return nil
 }
 
 // Item decode bytes data to cache item use gob
@@ -199,7 +178,9 @@ func SimpleType(v interface{}) bool {
 	switch v.(type) {
 	case string:
 		return true
-	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
+	case int, int8, int16, int32, int64:
+		return true
+	case uint, uint8, uint16, uint32, uint64:
 		return true
 	case float32, float64:
 		return true

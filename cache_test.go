@@ -9,7 +9,7 @@ import (
 func TestCacheGob1(t *testing.T) {
 	Convey("cache Gob", t, func() {
 		item := NewItem("1", 6)
-		b, err := item.Bytes()
+		b, err := item.Encode()
 		item2, err2 := b.Item()
 
 		Convey("encode", func() {
