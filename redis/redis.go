@@ -58,13 +58,21 @@ func (c *Redis) Set(key string, v interface{}, ttl int64) error {
 // Incr increases cached int-type value by given key as a counter
 // if key not exist, before increase set value with zero
 func (c *Redis) Incr(key string) (int64, error) {
-	return c.handle.Incr(c.Prefix + key).Val(), nil
+	t := c.handle.Incr(c.Prefix + key)
+	if t.Err() != nil {
+		return 0, t.Err()
+	}
+	return t.Val(), nil
 }
 
 // Decr decreases cached int-type value by given key as a counter
 // if key not exist, return errors
 func (c *Redis) Decr(key string) (int64, error) {
-	return c.handle.Decr(c.Prefix + key).Val(), nil
+	t := c.handle.Decr(c.Prefix + key)
+	if t.Err() != nil {
+		return 0, t.Err()
+	}
+	return t.Val(), nil
 }
 
 // Delete delete cached data by given key

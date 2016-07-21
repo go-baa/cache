@@ -61,6 +61,14 @@ func (c *Memcache) Set(key string, v interface{}, ttl int64) error {
 // if key not exist, before increase set value with zero
 func (c *Memcache) Incr(key string) (int64, error) {
 	v, err := c.handle.Increment(c.Prefix+key, 1)
+	if err != nil {
+		if err == memcache.ErrCacheMiss {
+			err = c.Set(key, 0, 0)
+			if err == nil {
+				return c.Incr(key)
+			}
+		}
+	}
 	return int64(v), err
 }
 
@@ -68,6 +76,14 @@ func (c *Memcache) Incr(key string) (int64, error) {
 // if key not exist, return errors
 func (c *Memcache) Decr(key string) (int64, error) {
 	v, err := c.handle.Decrement(c.Prefix+key, 1)
+	if err != nil {
+		if err == memcache.ErrCacheMiss {
+			err = c.Set(key, 0, 0)
+			if err == nil {
+				return c.Decr(key)
+			}
+		}
+	}
 	return int64(v), err
 }
 

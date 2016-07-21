@@ -121,7 +121,7 @@ func (c *Memory) Incr(key string) (int64, error) {
 func (c *Memory) Decr(key string) (int64, error) {
 	item := c.get(key)
 	if item == nil {
-		return 0, fmt.Errorf("cache: not exists")
+		item = NewItem(0, 0)
 	}
 	err := item.Decr()
 	if err != nil {

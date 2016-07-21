@@ -22,7 +22,8 @@ type Cacher interface {
 	// if key not exist, before increase set value with zero
 	Incr(key string) (int64, error)
 	// Decr decreases cached int-type value by given key as a counter
-	// if key not exist, return errors
+	// if key not exist, before increase set value with zero
+	// NOTE: memcached returns uint type cannot be less than zero
 	Decr(key string) (int64, error)
 	// Delete delete cached data by given key
 	Delete(key string) error
@@ -124,9 +125,6 @@ func (t *Item) Decr() error {
 		t.Val = int64(reflect.ValueOf(t.Val).Uint()) - 1
 	default:
 		return fmt.Errorf("item value is not int-type")
-	}
-	if t.Val.(int64) <= 0 {
-		return fmt.Errorf("item value is less than 0")
 	}
 	return nil
 }
