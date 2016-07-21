@@ -41,24 +41,34 @@ func (c *Memory) Exist(key string) bool {
 }
 
 // Get returns value by given key
-func (c *Memory) Get(key string, o interface{}) error {
+func (c *Memory) Get(key string, out interface{}) error {
 	c.mu.RLock()
 	c.mu.RUnlock()
 	item := c.get(c.Prefix + key)
 	if item == nil {
-		return errors.New("cache miss")
+		return errors.New("cache: cache miss")
 	}
-	rv := reflect.ValueOf(o)
-	if rv.Type().Kind() == reflect.Ptr {
+	rv := reflect.ValueOf(out)
+	if rv.IsNil() {
+		return errors.New("cache: out is nil")
+	}
+	if rv.Kind() != reflect.Ptr {
+		return errors.New("cache: out must be a pointer")
+	}
+	for rv.Kind() == reflect.Ptr {
+		if !rv.Elem().IsValid() && rv.IsNil() {
+			rv.Set(reflect.New(rv.Type().Elem()))
+		}
 		rv = rv.Elem()
 	}
+
 	if !rv.CanSet() {
-		return errors.New("given variable cannot set value")
+		return errors.New("cache: out cannot set value")
 	}
-	if rv.Type() != reflect.ValueOf(item.Val).Type() {
-		return errors.New("given variable is different type with stored value")
+	if rv.Type() != reflect.TypeOf(item.Val) {
+		return fmt.Errorf("cache: out is different type with stored value %v, %v", rv.Type(), reflect.TypeOf(item.Val))
 	}
-	reflect.ValueOf(o).Elem().Set(reflect.ValueOf(item.Val))
+	rv.Set(reflect.ValueOf(item.Val))
 	return nil
 }
 
@@ -119,7 +129,7 @@ func (c *Memory) Incr(key string) (int64, error) {
 		ttl = int64((item.Expiration - time.Now().UnixNano()) / 1e9)
 	}
 	if ttl < 0 {
-		return 0, fmt.Errorf("cache expired")
+		return 0, fmt.Errorf("cache: expired")
 	}
 	err = c.Set(key, item.Val, ttl)
 	if err != nil {
@@ -133,7 +143,7 @@ func (c *Memory) Incr(key string) (int64, error) {
 func (c *Memory) Decr(key string) (int64, error) {
 	item := c.get(key)
 	if item == nil {
-		return 0, fmt.Errorf("cache key not exists")
+		return 0, fmt.Errorf("cache: not exists")
 	}
 	err := item.Decr()
 	if err != nil {
@@ -144,7 +154,7 @@ func (c *Memory) Decr(key string) (int64, error) {
 		ttl = int64((item.Expiration - time.Now().UnixNano()) / 1e9)
 	}
 	if ttl < 0 {
-		return 0, fmt.Errorf("cache expired")
+		return 0, fmt.Errorf("cache: expired")
 	}
 	err = c.Set(key, item.Val, ttl)
 	if err != nil {
@@ -212,7 +222,7 @@ func (c *Memory) gc(size int64) error {
 	}
 
 	if size > MenoryObjectMaxSize {
-		return fmt.Errorf("object size limit %d bytes", MenoryObjectMaxSize)
+		return fmt.Errorf("cache: object size limit to %d bytes", MenoryObjectMaxSize)
 	}
 
 	releaseSize := c.bytesLimit - size*2

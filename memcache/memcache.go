@@ -26,13 +26,13 @@ func (c *Memcache) Exist(key string) bool {
 }
 
 // Get returns value by given key
-func (c *Memcache) Get(key string, o interface{}) error {
+func (c *Memcache) Get(key string, out interface{}) error {
 	v, err := c.handle.Get(c.Prefix + key)
 	if err != nil {
 		return err
 	}
 
-	if cache.SimpleValue(v.Value, o) {
+	if cache.SimpleValue(v.Value, out) {
 		return nil
 	}
 
@@ -40,17 +40,27 @@ func (c *Memcache) Get(key string, o interface{}) error {
 	if err != nil {
 		return err
 	}
-	rv := reflect.ValueOf(o)
-	if rv.Type().Kind() == reflect.Ptr {
+	rv := reflect.ValueOf(out)
+	if rv.IsNil() {
+		return errors.New("cache: out is nil")
+	}
+	if rv.Kind() != reflect.Ptr {
+		return errors.New("cache: out must be a pointer")
+	}
+	for rv.Kind() == reflect.Ptr {
+		if !rv.Elem().IsValid() && rv.IsNil() {
+			rv.Set(reflect.New(rv.Type().Elem()))
+		}
 		rv = rv.Elem()
 	}
+
 	if !rv.CanSet() {
-		return errors.New("given variable cannot set value")
+		return errors.New("cache: out cannot set value")
 	}
-	if rv.Type() != reflect.ValueOf(item.Val).Type() {
-		return errors.New("given variable is different type with stored value")
+	if rv.Type() != reflect.TypeOf(item.Val) {
+		return fmt.Errorf("cache: out is different type with stored value %v, %v", rv.Type(), reflect.TypeOf(item.Val))
 	}
-	reflect.ValueOf(o).Elem().Set(reflect.ValueOf(item.Val))
+	rv.Set(reflect.ValueOf(item.Val))
 	return nil
 }
 

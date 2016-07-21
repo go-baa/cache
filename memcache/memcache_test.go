@@ -45,6 +45,20 @@ func TestCacheMemory1(t *testing.T) {
 			var v2 b
 			c.Get("test", &v2)
 			So(v2.Name, ShouldEqual, v1.Name)
+			var v3 *b
+			err = c.Get("test", v3)
+			So(err, ShouldNotBeNil)
+			t.Logf("Get %#v: %v\n", v3, err)
+			err = c.Get("test", &v3)
+			So(err, ShouldBeNil)
+			So(v3.Name, ShouldEqual, v1.Name)
+			v4 := new(b)
+			c.Get("test", v4)
+			So(v4.Name, ShouldEqual, v1.Name)
+			var v5 interface{}
+			err = c.Get("test", &v5)
+			So(err, ShouldNotBeNil)
+			t.Logf("Get %#v: %v\n", v5, err)
 		})
 
 		Convey("incr/decr", func() {
