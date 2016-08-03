@@ -16,15 +16,15 @@ var testCache Cacher
 var err error
 
 func TestCacheMemory1(t *testing.T) {
-	Convey("cache memory", t, func() {
-		c := New(Options{
-			Name:    "test2",
-			Adapter: "memory",
-			Config: map[string]interface{}{
-				"bytesLimit": int64(1024 * 1024), // 1MB
-			},
-		})
+	c := New(Options{
+		Name:    "test2",
+		Adapter: "memory",
+		Config: map[string]interface{}{
+			"bytesLimit": int64(1024 * 1024), // 1MB
+		},
+	})
 
+	Convey("cache memory", t, func() {
 		Convey("set", func() {
 			err := c.Set("test", "1", 2)
 			So(err, ShouldBeNil)
@@ -173,7 +173,7 @@ func BenchmarkCacheMemoryGet(b *testing.B) {
 
 func init() {
 	testCache = New(Options{
-		Name:    "test",
+		Name:    "testMemory",
 		Adapter: "memory",
 		Config: map[string]interface{}{
 			"bytesLimit": int64(1024 * 1024), // 1MB

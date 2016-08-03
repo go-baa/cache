@@ -51,7 +51,9 @@ type Options struct {
 	Config  map[string]interface{} // config for adapter
 }
 
-var adapters = make(map[string]Cacher)
+type instanceFunc func() Cacher
+
+var adapters = make(map[string]instanceFunc)
 
 // New create a Cacher
 func New(o Options) Cacher {
@@ -71,22 +73,23 @@ func New(o Options) Cacher {
 // NewCacher creates and returns a new cacher by given adapter name and configuration.
 // It panics when given adapter isn't registered and starts GC automatically.
 func NewCacher(name string, o Options) (Cacher, error) {
-	adapter, ok := adapters[name]
+	f, ok := adapters[name]
 	if !ok {
 		return nil, fmt.Errorf("cache: unknown adapter '%s'(forgot to import?)", name)
 	}
+	adapter := f()
 	return adapter, adapter.Start(o)
 }
 
 // Register registers a adapter
-func Register(name string, adapter Cacher) {
-	if adapter == nil {
-		panic("cache.Register: cannot register adapter with nil value")
+func Register(name string, f instanceFunc) {
+	if f == nil {
+		panic("cache.Register: cannot register adapter with nil func")
 	}
-	if _, dup := adapters[name]; dup {
+	if _, ok := adapters[name]; ok {
 		panic(fmt.Errorf("cache.Register: cannot register adapter '%s' twice", name))
 	}
-	adapters[name] = adapter
+	adapters[name] = f
 }
 
 // NewItem create a cache item

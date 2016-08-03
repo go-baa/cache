@@ -14,7 +14,7 @@ import (
 // init a global cacher
 var c cache.Cacher
 
-func TestCacheMemory1(t *testing.T) {
+func TestCacheRedis1(t *testing.T) {
 	Convey("cache redis", t, func() {
 		Convey("set", func() {
 			err := c.Set("test", "1", 2)

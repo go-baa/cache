@@ -30,6 +30,11 @@ type Memory struct {
 	store      *lru.Cache
 }
 
+// NewMemory create a cache instance of memory
+func NewMemory() Cacher {
+	return new(Memory)
+}
+
 // Exist return true if value cached by given key
 func (c *Memory) Exist(key string) bool {
 	item := c.get(c.Prefix + key)
@@ -218,5 +223,5 @@ func (c *Memory) gc(size int64) error {
 }
 
 func init() {
-	Register("memory", &Memory{})
+	Register("memory", NewMemory)
 }

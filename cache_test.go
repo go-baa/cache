@@ -24,11 +24,12 @@ func TestCacheGob1(t *testing.T) {
 }
 
 func TestCache1(t *testing.T) {
+	c := New(Options{
+		Name:    "test",
+		Adapter: "memory",
+	})
+
 	Convey("cache", t, func() {
-		c := New(Options{
-			Name:    "test",
-			Adapter: "memory",
-		})
 
 		Convey("set", func() {
 			err := c.Set("test", "1", 6)
@@ -40,5 +41,31 @@ func TestCache1(t *testing.T) {
 			c.Get("test", &v)
 			So(v, ShouldEqual, "1")
 		})
+	})
+}
+
+func TestCacheMulti(t *testing.T) {
+	Convey("test multiple adapter", t, func() {
+		c1 := New(Options{
+			Name:    "test1",
+			Adapter: "memory",
+			Config: map[string]interface{}{
+				"host":     "127.0.0.1",
+				"port":     "6379",
+				"password": "",
+				"poolsize": 10,
+			},
+		})
+		c2 := New(Options{
+			Name:    "test2",
+			Adapter: "memory",
+			Config: map[string]interface{}{
+				"host":     "10.1.1.31",
+				"port":     "6379",
+				"password": "",
+				"poolsize": 10,
+			},
+		})
+		So(c1, ShouldNotEqual, c2)
 	})
 }

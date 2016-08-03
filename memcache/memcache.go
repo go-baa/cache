@@ -14,6 +14,11 @@ type Memcache struct {
 	handle *memcache.Client
 }
 
+// New create a cache instance of memcache
+func New() cache.Cacher {
+	return new(Memcache)
+}
+
 // Exist return true if value cached by given key
 func (c *Memcache) Exist(key string) bool {
 	_, err := c.handle.Get(c.Prefix + key)
@@ -122,5 +127,5 @@ func (c *Memcache) Start(o cache.Options) error {
 }
 
 func init() {
-	cache.Register("memcache", &Memcache{})
+	cache.Register("memcache", New)
 }

@@ -15,6 +15,11 @@ type Redis struct {
 	handle *redis.Client
 }
 
+// New create a cache instance of redis
+func New() cache.Cacher {
+	return new(Redis)
+}
+
 // Exist return true if value cached by given key
 func (c *Redis) Exist(key string) bool {
 	ok, err := c.handle.Exists(c.Prefix + key).Result()
@@ -123,5 +128,5 @@ func (c *Redis) Start(o cache.Options) error {
 }
 
 func init() {
-	cache.Register("redis", &Redis{})
+	cache.Register("redis", New)
 }
