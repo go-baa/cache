@@ -26,7 +26,7 @@ func main() {
 		Name:     "cache",
         Prefix:   "MyApp",
 		Adapter:  "memory",
-		Config:   map[string]string{},
+		Config:   map[string]interface{}{},
 	}))
 
 	// router
@@ -34,7 +34,7 @@ func main() {
 		ca := c.DI("cache").(cache.Cacher)
 		ca.Set("test", "baa", 10)
         var v string
-		ca.Get("test", v)
+		ca.Get("test", &v)
 		c.String(200, v)
 	})
 

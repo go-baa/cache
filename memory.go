@@ -56,7 +56,7 @@ func (c *Memory) Get(key string, out interface{}) error {
 }
 
 func (c *Memory) get(key string) *Item {
-	v, ok := c.store.Get(c.Prefix + key)
+	v, ok := c.store.Get(key)
 	if !ok {
 		return nil
 	}
@@ -65,7 +65,7 @@ func (c *Memory) get(key string) *Item {
 		return nil
 	}
 	if item.Expired() {
-		c.Delete(c.Prefix + key)
+		c.Delete(key)
 		return nil
 	}
 	return item
@@ -99,7 +99,7 @@ func (c *Memory) Set(key string, v interface{}, ttl int64) error {
 // Incr increases cached int-type value by given key as a counter
 // if key not exist, before increase set value with zero
 func (c *Memory) Incr(key string) (int64, error) {
-	item := c.get(key)
+	item := c.get(c.Prefix + key)
 	if item == nil {
 		item = NewItem(0, 0)
 	}
@@ -124,7 +124,7 @@ func (c *Memory) Incr(key string) (int64, error) {
 // Decr decreases cached int-type value by given key as a counter
 // if key not exist, return errors
 func (c *Memory) Decr(key string) (int64, error) {
-	item := c.get(key)
+	item := c.get(c.Prefix + key)
 	if item == nil {
 		item = NewItem(0, 0)
 	}
