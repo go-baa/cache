@@ -47,9 +47,10 @@ you should import cache adpater before use it, like this:
 
 ```
 import(
-    "github.com/go-baa/baa"
+    "gopkg.in/baa.v1"
     "github.com/go-baa/cache"
     _ "github.com/go-baa/cache/memcache"
+    _ "github.com/go-baa/cache/redis"
 )
 ```
 
