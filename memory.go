@@ -71,7 +71,7 @@ func (c *Memory) get(key string) *Item {
 	return item
 }
 
-// Set cache value by given key
+// Set cache value by given key, cache ttl second
 func (c *Memory) Set(key string, v interface{}, ttl int64) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()

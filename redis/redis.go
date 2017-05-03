@@ -47,7 +47,7 @@ func (c *Redis) Get(key string, out interface{}) error {
 	return item.Decode(out)
 }
 
-// Set cache value by given key
+// Set cache value by given key, cache ttl second
 func (c *Redis) Set(key string, v interface{}, ttl int64) error {
 	if !cache.SimpleType(v) {
 		item := cache.NewItem(v, ttl)

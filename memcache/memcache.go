@@ -46,7 +46,7 @@ func (c *Memcache) Get(key string, out interface{}) error {
 	return item.Decode(out)
 }
 
-// Set cache value by given key
+// Set cache value by given key, cache ttl second
 func (c *Memcache) Set(key string, v interface{}, ttl int64) error {
 	var t []byte
 	if !cache.SimpleType(v) {
