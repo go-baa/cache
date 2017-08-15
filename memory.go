@@ -73,18 +73,21 @@ func (c *Memory) get(key string) *Item {
 
 // Set cache value by given key, cache ttl second
 func (c *Memory) Set(key string, v interface{}, ttl int64) error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
 	item := NewItem(v, ttl)
 	b, err := item.Encode()
 	if err != nil {
 		return err
 	}
+
 	// if overwrite bytes count will error
 	// so, delete first if exist
 	if c.Exist(key) {
 		c.store.Remove(c.Prefix + key)
 	}
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	l := int64(len(b))
 	err = c.gc(l)
 	if err != nil {
