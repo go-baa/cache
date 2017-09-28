@@ -159,6 +159,9 @@ func (t *Item) Decode(out interface{}) error {
 		return fmt.Errorf("cache: out cannot set value")
 	}
 	rt := reflect.ValueOf(t.Val)
+	if rt.Kind() == reflect.Ptr {
+		rt = rt.Elem()
+	}
 	if rv.Type() != rt.Type() {
 		return fmt.Errorf("cache: out is different type with stored value %v, %v", rv.Type(), rt.Type())
 	}
