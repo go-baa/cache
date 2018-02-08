@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-     http://www.apache.org/licenses/LICENSE-2.0
+	 http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,7 +17,10 @@ limitations under the License.
 // Package lru implements an LRU cache.
 package lru
 
-import "container/list"
+import (
+	"container/list"
+	"sync"
+)
 
 // Cache is an LRU cache. It is not safe for concurrent access.
 type Cache struct {
@@ -31,6 +34,7 @@ type Cache struct {
 
 	ll    *list.List
 	cache map[interface{}]*list.Element
+	mutex sync.RWMutex
 }
 
 // A Key may be any value that is comparable. See http://golang.org/ref/spec#Comparison_operators
@@ -58,13 +62,19 @@ func (c *Cache) Add(key Key, value interface{}) {
 		c.cache = make(map[interface{}]*list.Element)
 		c.ll = list.New()
 	}
-	if ee, ok := c.cache[key]; ok {
+
+	c.mutex.RLock()
+	ee, ok := c.cache[key]
+	c.mutex.RUnlock()
+	if ok {
 		c.ll.MoveToFront(ee)
 		ee.Value.(*entry).value = value
 		return
 	}
 	ele := c.ll.PushFront(&entry{key, value})
+	c.mutex.Lock()
 	c.cache[key] = ele
+	c.mutex.Unlock()
 	if c.MaxEntries != 0 && c.ll.Len() > c.MaxEntries {
 		c.RemoveOldest()
 	}
@@ -75,7 +85,11 @@ func (c *Cache) Get(key Key) (value interface{}, ok bool) {
 	if c.cache == nil {
 		return
 	}
-	if ele, hit := c.cache[key]; hit {
+
+	c.mutex.RLock()
+	ele, hit := c.cache[key]
+	c.mutex.RUnlock()
+	if hit {
 		c.ll.MoveToFront(ele)
 		return ele.Value.(*entry).value, true
 	}
@@ -96,7 +110,11 @@ func (c *Cache) Remove(key Key) {
 	if c.cache == nil {
 		return
 	}
-	if ele, hit := c.cache[key]; hit {
+
+	c.mutex.RLock()
+	ele, hit := c.cache[key]
+	c.mutex.RUnlock()
+	if hit {
 		c.removeElement(ele)
 	}
 }
@@ -115,7 +133,9 @@ func (c *Cache) RemoveOldest() {
 func (c *Cache) removeElement(e *list.Element) {
 	c.ll.Remove(e)
 	kv := e.Value.(*entry)
+	c.mutex.Lock()
 	delete(c.cache, kv.key)
+	c.mutex.Unlock()
 	if c.OnEvicted != nil {
 		c.OnEvicted(kv.key, kv.value)
 	}
@@ -127,4 +147,18 @@ func (c *Cache) Len() int {
 		return 0
 	}
 	return c.ll.Len()
+}
+
+// Clear purges all stored items from the cache.
+func (c *Cache) Clear() {
+	c.mutex.Lock()
+	if c.OnEvicted != nil {
+		for _, e := range c.cache {
+			kv := e.Value.(*entry)
+			c.OnEvicted(kv.key, kv.value)
+		}
+	}
+	c.ll = nil
+	c.cache = nil
+	c.mutex.Unlock()
 }
