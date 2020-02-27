@@ -13,8 +13,8 @@ baa module providers a cache management.
 package main
 
 import (
+	"github.com/go-baa/baa"
 	"github.com/go-baa/cache"
-	"gopkg.in/baa.v1"
 )
 
 func main() {
@@ -47,7 +47,7 @@ you should import cache adpater before use it, like this:
 
 ```
 import(
-    "gopkg.in/baa.v1"
+    "github.com/go-baa/baa"
     "github.com/go-baa/cache"
     _ "github.com/go-baa/cache/memcache"
     _ "github.com/go-baa/cache/redis"
